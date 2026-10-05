@@ -1115,6 +1115,24 @@ document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('clic
 document.querySelectorAll('[data-rack]').forEach((b) => b.addEventListener('click', () => focusRack(b.dataset.rack)));
 document.getElementById('toggleControls').onclick = () => document.getElementById('controls').classList.toggle('collapsed');
 
+// Mostrar u ocultar todos los paneles (botón o tecla H)
+const uiToggle = document.getElementById('uiToggle');
+function setPanelsHidden(off) {
+  document.body.classList.toggle('ui-off', off);
+  uiToggle.setAttribute('aria-pressed', String(off));
+  uiToggle.dataset.i18nAria = off ? 'uiAriaShow' : 'uiAria';
+  uiToggle.querySelector('span').dataset.i18n = off ? 'uiShow' : 'uiHide';
+  applyStatic();
+  try { localStorage.setItem('maqueta-ui-off', off ? '1' : '0'); } catch (e) { /* almacenamiento bloqueado */ }
+}
+uiToggle.addEventListener('click', () => setPanelsHidden(!document.body.classList.contains('ui-off')));
+addEventListener('keydown', (e) => {
+  if (e.key.toLowerCase() !== 'h' || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+  if (e.target.closest?.('input[type=text], textarea, [contenteditable]')) return;
+  setPanelsHidden(!document.body.classList.contains('ui-off'));
+});
+try { if (localStorage.getItem('maqueta-ui-off') === '1') setPanelsHidden(true); } catch (e) { /* almacenamiento bloqueado */ }
+
 let viewW = 0, viewH = 0;
 function resize() {
   const [w, h] = viewSize();

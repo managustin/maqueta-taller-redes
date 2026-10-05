@@ -76,10 +76,24 @@ body {
 .info .u-row:hover { background: var(--accent-soft); }
 .info p { line-height: 1.45; margin: 6px 0; }
 
-.legend { bottom: 16px; left: 50%; transform: translateX(-50%); padding: 8px 14px; display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; max-width: calc(100vw - 32px); }
+.legend { bottom: 16px; left: 50%; transform: translateX(-50%); padding: 8px 14px; display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; max-width: calc(100vw - 380px); }
 .legend span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 12px; }
 .legend i { display: inline-block; width: 18px; height: 5px; border-radius: 2px; }
 .legend i.dot { width: 10px; height: 10px; border-radius: 50%; }
+
+.ui-toggle {
+  position: fixed; right: 16px; bottom: 16px; z-index: 6;
+  display: inline-flex; align-items: center; gap: 7px;
+  font: 600 12px 'Inter', sans-serif; color: var(--text);
+  background: var(--panel); backdrop-filter: blur(8px);
+  border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow);
+  padding: 8px 12px; cursor: pointer;
+}
+.ui-toggle:hover { border-color: var(--accent); color: var(--accent); }
+.ui-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ui-toggle .slash { display: none; }
+body.ui-off .ui-toggle .slash { display: inline; }
+body.ui-off .title, body.ui-off .controls, body.ui-off .info, body.ui-off .legend { opacity: 0; visibility: hidden; pointer-events: none; }
 
 #tooltip {
   position: fixed; z-index: 10; pointer-events: none;
@@ -123,4 +137,8 @@ body {
   .collapse { display: block; border: 0; background: none; font-size: 18px; cursor: pointer; }
   .info { top: auto; bottom: 16px; left: 16px; right: 16px; width: auto; max-height: 55vh; }
   .legend { display: none; }
+  .controls { max-width: calc(100vw - 88px); }
+  .info { right: 72px; }
+  .ui-toggle { padding: 10px; }
+  .ui-toggle span { display: none; }
 }

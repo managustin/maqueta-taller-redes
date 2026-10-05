@@ -66,6 +66,10 @@ export const UI = {
     gInitial: 'Puesto inicial',
     gGrowth: 'Crecimiento +30 %',
     loading: 'Cargando maqueta…',
+    uiHide: 'Ocultar paneles',
+    uiShow: 'Mostrar paneles',
+    uiAria: 'Ocultar los paneles (tecla H)',
+    uiAriaShow: 'Mostrar los paneles (tecla H)',
   },
   en: {
     docTitle: 'MisioTIC Model',
@@ -107,6 +111,10 @@ export const UI = {
     gInitial: 'Initial workstation',
     gGrowth: 'Growth +30 %',
     loading: 'Loading model…',
+    uiHide: 'Hide panels',
+    uiShow: 'Show panels',
+    uiAria: 'Hide the panels (H key)',
+    uiAriaShow: 'Show the panels (H key)',
   },
 };
 
