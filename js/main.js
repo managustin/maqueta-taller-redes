@@ -3,6 +3,15 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { B, px, pz, SECTIONS, FLOORS, RACKS, CORE_PORTS, BACKBONE } from './data.js';
+import { lang, setLang, tr, num, applyStatic } from './i18n.js';
+
+applyStatic();
+
+// Textos de datos en el idioma actual
+const secName = (s) => tr(SECTIONS[s].name, SECTIONS[s].en);
+const floorName = (f) => tr(f.name, f.en);
+const rackTitle = (rk) => tr(rk.title, rk.titleEn);
+const unitDesc = (u) => tr(u[4], u[5]);
 
 // ---------------------------------------------------------------------------
 // Escena
@@ -163,10 +172,11 @@ const MAXD = { '': 44, small: 20, room: 48, floor: 70 };
 function label(text, cls, parent, x, y, z, maxDist = MAXD[cls || '']) {
   const el = document.createElement('div');
   el.className = 'lbl ' + (cls || '');
-  el.textContent = text;
+  el.textContent = typeof text === 'function' ? text() : text;
   const obj = new CSS2DObject(el);
   obj.position.set(x, y, z);
   obj.userData.want = true;
+  obj.userData.text = text;
   obj.userData.maxDist = maxDist;
   obj.userData.minDist = cls === 'floor' ? 20 : 0;
   parent.add(obj);
@@ -195,7 +205,6 @@ function layerGroup(name, parent) {
   return g;
 }
 
-const fmt = (n) => n.toLocaleString('es-AR', { maximumFractionDigits: 2 });
 const pad = (n, l = 2) => String(n).padStart(l, '0');
 
 // ---------------------------------------------------------------------------
@@ -234,7 +243,7 @@ function drawFace(g, type, id, h, opts = {}) {
   g.fillStyle = dark ? '#e2e8f0' : '#0f172a';
   g.font = `700 ${type === 'BLANK' ? 26 : 32}px Inter, sans-serif`;
   g.textBaseline = 'middle';
-  g.fillText(type === 'BLANK' ? 'RESERVA' : id, 56, H / 2);
+  g.fillText(type === 'BLANK' ? tr('RESERVA', 'SPARE') : id, 56, H / 2);
 
   const port = (x, y, w = 24, hh = 20, used = false) => {
     g.fillStyle = '#0b1220'; g.fillRect(x, y, w, hh);
@@ -330,7 +339,7 @@ for (const f of FLOORS) {
           const pp = Math.ceil(cable / f.ppPorts);
           const port = ((cable - 1) % f.ppPorts) + 1;
           const sw = Math.ceil(pp / 2);
-          cables.push({ c: cable, pp, port, sw, eth: ((pp - 1) % 2) * f.ppPorts + port, toma: n === 1 ? 'Única' : (k ? 'B' : 'A') });
+          cables.push({ c: cable, pp, port, sw, eth: ((pp - 1) % 2) * f.ppPorts + port, toma: n === 1 ? 'U' : (k ? 'B' : 'A') });
         }
         const x = px(xp), z = pz(row.y);
         const hOrtho = Math.abs(x - xc) + Math.abs(B.TRAY_X - xc) + Math.abs(z - rack.z) + Math.abs(B.TRAY_X - rack.x);
@@ -395,7 +404,7 @@ function buildFloor(f) {
     base.box(M.stair, 0.85, 0.16 * (i + 1) + 1.6, 0.28, 1.45, (0.16 * (i + 1) + 1.6) / 2, cz1 - 1.2 - i * 0.28);
   }
   base.box(M.stair, 1.69, 1.6, 1.0, 1, 0.8, cz1 - 0.6);
-  label('Núcleo · ascensor y escaleras', 'small', L.labels, 1, 2.2, 21.5);
+  label(() => tr('Núcleo · ascensor y escaleras', 'Core · elevator and stairs'), 'small', L.labels, 1, 2.2, 21.5);
 
   // Montante vertical M (CV12 / CV23) con sellado cortafuego
   const rx = px(320), rz = pz(1304);
@@ -405,7 +414,7 @@ function buildFloor(f) {
   clickable(riser, { kind: 'riser' });
   for (const dx of [-0.15, 0, 0.15]) pth.cyl(M.riserPipe, 0.03, B.H, rx + dx, B.H / 2 - B.SLAB, rz + (dx ? -0.1 : 0.1));
   if (f.n > 1) pth.box(M.seal, 0.82, 0.22, 0.82, rx, -0.1, rz);
-  label('Montante M (CV)', 'small', L.labels, rx, 3.0, rz);
+  label(() => tr('Montante M (CV)', 'Riser M (CV)'), 'small', L.labels, rx, 3.0, rz);
 
   // Recinto técnico
   const r = f.room;
@@ -424,7 +433,7 @@ function buildFloor(f) {
   clickable(roomFloor, { kind: 'room', floor: f.n });
   outline(G, r.x0, r.z0, r.x1, r.z1, 0.025, r.color);
   outline(L.facade, r.x0, r.z0, r.x1, r.z1, hh, r.color);
-  label(r.label, 'room', L.labels, (r.x0 + r.x1) / 2, hh + 0.1, r.z0);
+  label(() => tr(r.label, r.en), 'room', L.labels, (r.x0 + r.x1) / 2, hh + 0.1, r.z0);
 
   // Facilidad de entrada (solo piso 1)
   if (f.n === 1) {
@@ -434,7 +443,7 @@ function buildFloor(f) {
     ef.castShadow = true;
     G.add(ef);
     clickable(ef, { kind: 'ef' });
-    label('EF01 · Entrada ISP', 'room', L.labels, (ex0 + ex1) / 2, 2.25, (ez0 + ez1) / 2);
+    label(() => tr('EF01 · Entrada ISP', 'EF01 · ISP entrance'), 'room', L.labels, (ex0 + ex1) / 2, 2.25, (ez0 + ez1) / 2);
   }
 
   // Zonas por sección (todas en una malla y un juego de líneas por piso)
@@ -457,7 +466,9 @@ function buildFloor(f) {
       zoneLineCol.push(c3.r, c3.g, c3.b, c3.r, c3.g, c3.b);
     });
     const tomas = ds.reduce((a, d) => a + d.cables.length, 0);
-    const txt = s === 'SH' ? `SH · Show Room · ${tomas} tomas` : `${s} · ${SECTIONS[s].name} · ${ds.length} P / ${tomas} T`;
+    const txt = () => (s === 'SH'
+      ? tr(`SH · Show Room · ${tomas} tomas`, `SH · Showroom · ${tomas} outlets`)
+      : `${s} · ${secName(s)} · ${tr(`${ds.length} P / ${tomas} T`, `${ds.length} desks / ${tomas} outlets`)}`);
     const lb = label(txt, '', L.labels, (x0 + x1) / 2, 1.9, (z0 + z1) / 2);
     lb.element.style.borderColor = col;
   }
@@ -531,7 +542,7 @@ function buildFloor(f) {
   ceil.position.set(B.W / 2, B.CEIL, B.L / 2);
   L.ceiling.add(ceil);
 
-  label(`${f.name.toUpperCase()} · N.P.T. ${f.n === 1 ? '±0,00' : '+' + fmt((f.n - 1) * B.H)} m`, 'floor', L.labels, -0.6, 0.4, -0.6);
+  label(() => `${floorName(f).toUpperCase()} · ${tr('N.P.T.', 'FFL')} ${f.n === 1 ? '±' + num(0) : '+' + num((f.n - 1) * B.H)} m`, 'floor', L.labels, -0.6, 0.4, -0.6);
 
   base.build(G);
   fac.build(L.facade, { cast: false });
@@ -588,6 +599,7 @@ function buildDesk(d, fur, pth, G) {
 }
 
 const U = 0.04445;
+const rackPainters = [];
 const DEPTH = { ODF: 0.25, PP: 0.1, ORG: 0.08, SW: 0.3, CORE: 0.3, SRV: 0.25, RT: 0.23, PDU: 0.06, UPS: 0.6, SV: 0.7, BLANK: 0.02 };
 
 function buildRack(id, rk, f) {
@@ -612,7 +624,7 @@ function buildRack(id, rk, f) {
   const used = new Set();
   const units = [...rk.units];
   rk.units.forEach(([u, h]) => { for (let i = 0; i < h; i++) used.add(u + i); });
-  for (let u = 1; u <= 24; u++) if (!used.has(u)) units.push([u, 1, 'BLANK', `${id}-U${pad(u)}`, 'Panel ciego / espacio de crecimiento']);
+  for (let u = 1; u <= 24; u++) if (!used.has(u)) units.push([u, 1, 'BLANK', `${id}-U${pad(u)}`, 'Panel ciego / espacio de crecimiento', 'Blank panel / growth space']);
 
   // Todos los frentes del rack se dibujan en una sola textura y todos los equipos van en una sola malla
   // (antes era una malla con 6 materiales por equipo). Cada equipo conserva una caja invisible para el clic.
@@ -624,33 +636,40 @@ function buildRack(id, rk, f) {
   ctx.fillStyle = '#1f2937';
   ctx.fillRect(0, FACE_U * 24, FACE_W, 32);
   const sideV = 1 - (FACE_U * 24 + 16) / atlasH;
+  const top = (unit) => (24 - (unit[0] + unit[1] - 1)) * FACE_U;
+  // dibuja todos los frentes (se vuelve a llamar al cambiar de idioma)
+  const paint = () => {
+    for (const unit of units) {
+      const [, h, type, devId] = unit;
+      const opts = {};
+      if (type === 'PP') {
+        const k = +devId.slice(-2);
+        opts.used = Math.max(0, Math.min(f.ppPorts, f.totalCables - (k - 1) * f.ppPorts));
+      }
+      if (type === 'ODF') Object.assign(opts, id === 'R03' ? { adapters: 12, used: 5 } : { adapters: 6, used: id === 'R01' ? 3 : 2 });
+      if (type === 'SV') opts.role = unitDesc(unit).split(' · ')[0];
+      ctx.save();
+      ctx.translate(0, top(unit));
+      ctx.beginPath();
+      ctx.rect(0, 0, FACE_W, h * FACE_U);
+      ctx.clip();
+      drawFace(ctx, type, devId, h, opts);
+      ctx.restore();
+    }
+  };
+  paint();
   const geos = [];
   for (const unit of units) {
-    const [u, h, type, devId, desc] = unit;
+    const [u, h, type] = unit;
     const d = DEPTH[type];
     const hgt = h * U - 0.002;
-    const opts = {};
-    if (type === 'PP') {
-      const k = +devId.slice(-2);
-      opts.used = Math.max(0, Math.min(f.ppPorts, f.totalCables - (k - 1) * f.ppPorts));
-    }
-    if (type === 'ODF') Object.assign(opts, id === 'R03' ? { adapters: 12, used: 5 } : { adapters: 6, used: id === 'R01' ? 3 : 2 });
-    if (type === 'SV') opts.role = desc.split(' · ')[0];
-    const top = (24 - (u + h - 1)) * FACE_U;
-    ctx.save();
-    ctx.translate(0, top);
-    ctx.beginPath();
-    ctx.rect(0, 0, FACE_W, h * FACE_U);
-    ctx.clip();
-    drawFace(ctx, type, devId, h, opts);
-    ctx.restore();
 
     const y = 0.1 + (u - 1) * U + hgt / 2 + 0.001, z = D / 2 - 0.03 - d / 2;
     const geo = new THREE.BoxGeometry(0.483, hgt, d);
     const uv = geo.attributes.uv;
     for (let i = 0; i < uv.count; i++) {
       // vértices 16..19 = cara frontal (+z); el resto toma la franja oscura del final del atlas
-      if (i >= 16 && i < 20) uv.setXY(i, uv.getX(i), 1 - (top + (1 - uv.getY(i)) * h * FACE_U) / atlasH);
+      if (i >= 16 && i < 20) uv.setXY(i, uv.getX(i), 1 - (top(unit) + (1 - uv.getY(i)) * h * FACE_U) / atlasH);
       else uv.setXY(i, 0.5, sideV);
     }
     geo.translate(0, y, z);
@@ -667,6 +686,7 @@ function buildRack(id, rk, f) {
   devices.castShadow = devices.receiveShadow = true;
   g.add(devices);
   geos.forEach((geo) => geo.dispose());
+  rackPainters.push(() => { paint(); tex.needsUpdate = true; });
   label(`${id} · 24U`, 'room', g, 0, H + 0.25, 0, 30);
   rackObjects[id] = g;
   return g;
@@ -734,7 +754,7 @@ ispPost.position.set(-7, 1.0, (pz(1216) + pz(1290)) / 2);
 ispPost.castShadow = true;
 scene.add(ispPost);
 clickable(ispPost, { kind: 'backbone', key: 'WAN01' });
-const ispLbl = label('Acometida operador (ISP)', 'room', scene, -7, 2.5, ispPost.position.z);
+const ispLbl = label(() => tr('Acometida operador (ISP)', 'Carrier service entrance (ISP)'), 'room', scene, -7, 2.5, ispPost.position.z);
 
 // ---------------------------------------------------------------------------
 // Recorrido de un cable seleccionado
@@ -776,85 +796,99 @@ function clearHighlight() {
 // ---------------------------------------------------------------------------
 const info = document.getElementById('info');
 const infoBody = document.getElementById('infoBody');
-const showInfo = (html) => { infoBody.innerHTML = html; info.hidden = false; };
+// el panel guarda la función que lo arma, así se puede rehacer al cambiar de idioma
+let infoFn = null;
+const showInfo = (fn) => { infoFn = fn; infoBody.innerHTML = fn(); info.hidden = false; };
+const OK = () => `<span class="ok">≤ 90 m ✓</span>`;
 
 function summaryHTML() {
   const rows = FLOORS.map((f) => {
     const ds = desks.filter((d) => d.floor === f.n && !d.single);
-    return `<tr><td>Piso ${f.n}</td><td>${ds.length}${f.n === 2 ? ' + SH' : ''}</td><td>${f.totalCables}</td><td>${f.rack}</td></tr>`;
+    return `<tr><td>${tr('Piso', 'Floor')} ${f.n}</td><td>${ds.length}${f.n === 2 ? ' + SH' : ''}</td><td>${f.totalCables}</td><td>${f.rack}</td></tr>`;
   }).join('');
-  return `<h3>Resumen del proyecto</h3><div class="sub">MisioTIC S.A. · Posadas, Misiones · ANSI/TIA-568 / 569 / 606-B</div>
-  <table><tr><th>Piso</th><th>Puestos</th><th>Tomas</th><th>Rack</th></tr>${rows}
+  return `<h3>${tr('Resumen del proyecto', 'Project summary')}</h3><div class="sub">MisioTIC S.A. · Posadas, Misiones · ANSI/TIA-568 / 569 / 606-B</div>
+  <table><tr><th>${tr('Piso', 'Floor')}</th><th>${tr('Puestos', 'Workstations')}</th><th>${tr('Tomas', 'Outlets')}</th><th>Rack</th></tr>${rows}
   <tr><td><b>Total</b></td><td><b>146</b></td><td><b>304</b></td><td>4 racks 24U</td></tr></table>
   <div class="kv">
-    <div>Horizontal</div><div>U/UTP Cat 6 Belden 2412 · T568B · 6.710 m netos (25 cajas)</div>
-    <div>Backbone</div><div>Fibra OM3 12 hilos Belden FI3D012R9 · 10GBASE-SR</div>
-    <div>Núcleo</div><div>MikroTik CRS317-1G-16S+RM en ER03/MDF03</div>
-    <div>Acceso</div><div>8× MikroTik CRS354 (48p GbE + SFP+)</div>
-    <div>Servidores</div><div>SV01 Archivos · SV02 Correo · SV03 Web · SV04 DNS · SV05 Firewall</div>
-    <div>Enlace más largo</div><div>34 m (canal 39 m) <span class="ok">≤ 90 m ✓</span></div>
+    <div>${tr('Horizontal', 'Horizontal')}</div><div>${tr('U/UTP Cat 6 Belden 2412 · T568B · 6.710 m netos (25 cajas)', 'U/UTP Cat 6 Belden 2412 · T568B · 6,710 m net (25 boxes)')}</div>
+    <div>Backbone</div><div>${tr('Fibra OM3 12 hilos Belden FI3D012R9 · 10GBASE-SR', '12-strand OM3 fiber Belden FI3D012R9 · 10GBASE-SR')}</div>
+    <div>${tr('Núcleo', 'Core')}</div><div>${tr('MikroTik CRS317-1G-16S+RM en ER03/MDF03', 'MikroTik CRS317-1G-16S+RM in ER03/MDF03')}</div>
+    <div>${tr('Acceso', 'Access')}</div><div>8× MikroTik CRS354 (48p GbE + SFP+)</div>
+    <div>${tr('Servidores', 'Servers')}</div><div>${tr('SV01 Archivos · SV02 Correo · SV03 Web · SV04 DNS · SV05 Firewall', 'SV01 Files · SV02 Mail · SV03 Web · SV04 DNS · SV05 Firewall')}</div>
+    <div>${tr('Enlace más largo', 'Longest link')}</div><div>34 m (${tr('canal', 'channel')} 39 m) ${OK()}</div>
   </div>
-  <p>Hacé clic en un puesto para ver sus cables, la patchera y el puerto del switch, y el recorrido completo hasta el rack.</p>`;
+  <p>${tr('Haga clic en un puesto para ver sus cables, la patchera y el puerto del switch, y el recorrido completo hasta el rack.', 'Click a workstation to see its cables, the patch panel and switch port, and the full route to the rack.')}</p>`;
 }
 
 function deskHTML(d) {
   const f = FLOORS[d.floor - 1];
-  const sec = SECTIONS[d.s];
-  const tag = d.single ? `<span class="tag" style="background:#fef9c3;color:#854d0e">Toma de exhibición</span>`
-    : d.growth ? `<span class="tag" style="background:#fef3c7;color:#92400e">Crecimiento +30 %</span>`
-    : `<span class="tag" style="background:#dbeafe;color:#1e40af">Puesto inicial</span>`;
-  const rows = d.cables.map((c) => `<tr><td>${c.toma}</td><td class="mono">P${d.floor}-C${pad(c.c, 3)}</td><td class="mono">${f.rack}-PP${pad(c.pp)} · ${pad(c.port)}</td><td class="mono">${f.rack}-SW${pad(c.sw)} · eth${c.eth}</td></tr>`).join('');
+  const tag = d.single ? `<span class="tag" style="background:#fef9c3;color:#854d0e">${tr('Toma de exhibición', 'Showroom outlet')}</span>`
+    : d.growth ? `<span class="tag" style="background:#fef3c7;color:#92400e">${tr('Crecimiento +30 %', 'Growth +30 %')}</span>`
+    : `<span class="tag" style="background:#dbeafe;color:#1e40af">${tr('Puesto inicial', 'Initial workstation')}</span>`;
+  const toma = (c) => (c.toma === 'U' ? tr('Única', 'Single') : c.toma);
+  const rows = d.cables.map((c) => `<tr><td>${toma(c)}</td><td class="mono">P${d.floor}-C${pad(c.c, 3)}</td><td class="mono">${f.rack}-PP${pad(c.pp)} · ${pad(c.port)}</td><td class="mono">${f.rack}-SW${pad(c.sw)} · eth${c.eth}</td></tr>`).join('');
   const nums = d.cables.map((c) => pad(c.c, 3));
   const tramo = d.z < RACKS[f.rack].z ? 'N' : 'S';
-  return `<h3>${d.id}</h3><div class="sub">${sec.name} · ${f.name}</div>${tag}
-  <table style="margin-top:10px"><tr><th>Toma</th><th>Cable</th><th>Patchera · puerto</th><th>Switch</th></tr>${rows}</table>
+  return `<h3>${d.id}</h3><div class="sub">${secName(d.s)} · ${floorName(f)}</div>${tag}
+  <table style="margin-top:10px"><tr><th>${tr('Toma', 'Outlet')}</th><th>Cable</th><th>${tr('Patchera · puerto', 'Patch panel · port')}</th><th>Switch</th></tr>${rows}</table>
   <div class="kv">
-    <div>Patchcords</div><div class="mono">Rack P${d.floor}-PR${nums.join('/')} (2 m)<br>Puesto P${d.floor}-PU${nums.join('/')} (3 m)</div>
-    <div>Roseta</div><div>${d.isCol ? 'Sobre la columna de servicio, a +0,30 m' : 'Sobre el cablecanal de la fila (60×40 mm)'}</div>
-    <div>Bajada</div><div>Columna de servicio 100×100 mm junto a ${d.colDesk}</div>
-    <div>Recorrido</div><div>Cablecanal → columna → conduit Ø50 en pleno (+2,76 m) → bandeja T${d.floor}-${tramo} (x = 9,80 m) → T${d.floor}-E → ${f.rack}</div>
-    <div>Longitud</div><div>≈ ${d.length} m con la fórmula del TP <span class="ok">≤ 90 m ✓</span></div>
+    <div>Patchcords</div><div class="mono">Rack P${d.floor}-PR${nums.join('/')} (2 m)<br>${tr('Puesto', 'Desk')} P${d.floor}-PU${nums.join('/')} (3 m)</div>
+    <div>${tr('Roseta', 'Faceplate')}</div><div>${d.isCol ? tr('Sobre la columna de servicio, a +0,30 m', 'On the service pole, at +0.30 m') : tr('Sobre el cablecanal de la fila (60×40 mm)', 'On the row raceway (60×40 mm)')}</div>
+    <div>${tr('Bajada', 'Drop')}</div><div>${tr('Columna de servicio 100×100 mm junto a', '100×100 mm service pole next to')} ${d.colDesk}</div>
+    <div>${tr('Recorrido', 'Route')}</div><div>${tr(
+      `Cablecanal → columna → conduit Ø50 en pleno (+2,76 m) → bandeja T${d.floor}-${tramo} (x = 9,80 m) → T${d.floor}-E → ${f.rack}`,
+      `Raceway → service pole → Ø50 conduit in the plenum (+2.76 m) → tray T${d.floor}-${tramo} (x = 9.80 m) → T${d.floor}-E → ${f.rack}`)}</div>
+    <div>${tr('Longitud', 'Length')}</div><div>≈ ${d.length} m ${tr('con la fórmula del TP', 'using the project formula')} ${OK()}</div>
   </div>
-  <p style="color:var(--muted)">El recorrido del cable está resaltado en celeste.</p>`;
+  <p style="color:var(--muted)">${tr('El recorrido del cable está resaltado en celeste.', 'The cable route is highlighted in light blue.')}</p>`;
 }
 
 function rackHTML(id) {
   const rk = RACKS[id];
   const all = [...rk.units].sort((a, b) => b[0] - a[0]);
   const used = all.reduce((a, u) => a + u[1], 0);
-  const rows = all.map((u) => `<tr class="u-row" data-dev="${u[3]}"><td class="mono">U${u[1] > 1 ? `${pad(u[0])}-${pad(u[0] + u[1] - 1)}` : pad(u[0])}</td><td class="mono">${u[3]}</td><td>${u[4]}</td></tr>`).join('');
-  return `<h3>${rk.title}</h3><div class="sub">Gabinete 19" 24U · 600 × 1000 mm · ${used}U en uso · ${24 - used}U libres (${Math.round(((24 - used) / 24) * 100)} % de reserva)</div>
-  <div class="kv"><div>Carga</div><div>${rk.load}</div><div>Tierra</div><div>Barra TGB (ANSI/TIA-607)</div></div>
-  <table><tr><th>U</th><th>Equipo</th><th>Detalle</th></tr>${rows}</table>`;
+  const free = 24 - used, pct = Math.round((free / 24) * 100);
+  const rows = all.map((u) => `<tr class="u-row" data-dev="${u[3]}"><td class="mono">U${u[1] > 1 ? `${pad(u[0])}-${pad(u[0] + u[1] - 1)}` : pad(u[0])}</td><td class="mono">${u[3]}</td><td>${unitDesc(u)}</td></tr>`).join('');
+  return `<h3>${rackTitle(rk)}</h3><div class="sub">${tr(
+    `Gabinete 19" 24U · 600 × 1000 mm · ${used}U en uso · ${free}U libres (${pct} % de reserva)`,
+    `19" 24U cabinet · 600 × 1000 mm · ${used}U in use · ${free}U free (${pct} % spare)`)}</div>
+  <div class="kv"><div>${tr('Carga', 'Load')}</div><div>${tr(rk.load, rk.loadEn)}</div><div>${tr('Tierra', 'Grounding')}</div><div>${tr('Barra TGB (ANSI/TIA-607)', 'TGB busbar (ANSI/TIA-607)')}</div></div>
+  <table><tr><th>U</th><th>${tr('Equipo', 'Device')}</th><th>${tr('Detalle', 'Details')}</th></tr>${rows}</table>`;
 }
 
 function deviceHTML(rackId, unit) {
-  const [u, h, type, id, desc] = unit;
+  const [u, h, type, id] = unit;
   const rk = RACKS[rackId];
   let extra = '';
-  if (type === 'CORE') extra = `<table style="margin-top:8px"><tr><th>Puerto</th><th>Destino</th><th>Medio</th></tr>${CORE_PORTS.map((p) => `<tr><td class="mono">${p[0]}</td><td>${p[1]}</td><td>${p[2]}</td></tr>`).join('')}</table>`;
+  if (type === 'CORE') extra = `<table style="margin-top:8px"><tr><th>${tr('Puerto', 'Port')}</th><th>${tr('Destino', 'Destination')}</th><th>${tr('Medio', 'Medium')}</th></tr>${CORE_PORTS.map((p) => `<tr><td class="mono">${p[0]}</td><td>${tr(p[1], p[3])}</td><td>${tr(p[2], p[4])}</td></tr>`).join('')}</table>`;
   if (type === 'PP') {
     const f = FLOORS[rk.floor - 1];
     const k = +id.slice(-2);
     const a = (k - 1) * f.ppPorts + 1, b = Math.min(k * f.ppPorts, f.totalCables);
     const users = desks.filter((d) => d.floor === f.n && d.cables.some((c) => c.pp === k)).map((d) => d.id);
-    extra = `<div class="kv"><div>Cables</div><div class="mono">P${f.n}-C${pad(a, 3)} a P${f.n}-C${pad(b, 3)}</div><div>Puestos</div><div>${users.join(', ')}</div></div>`;
+    extra = `<div class="kv"><div>Cables</div><div class="mono">P${f.n}-C${pad(a, 3)} ${tr('a', 'to')} P${f.n}-C${pad(b, 3)}</div><div>${tr('Puestos', 'Workstations')}</div><div>${users.join(', ')}</div></div>`;
   }
-  if (type === 'SV' && id === 'SV05') extra = `<p>Cadena de borde: ISP → EF01 → WAN01 → RB4011 ether1 → ether2 → SV05 (WAN) → SV05 (LAN) → SW-SRV → SW-CORE SFP+9.</p>`;
+  if (type === 'SV' && id === 'SV05') extra = `<p>${tr('Cadena de borde', 'Edge chain')}: ISP → EF01 → WAN01 → RB4011 ether1 → ether2 → SV05 (WAN) → SV05 (LAN) → SW-SRV → SW-CORE SFP+9.</p>`;
   const pos = h > 1 ? `U${pad(u)}-U${pad(u + h - 1)}` : `U${pad(u)}`;
-  return `<h3>${type === 'BLANK' ? 'Espacio libre' : id}</h3><div class="sub">${rk.title} · ${pos}</div><p>${desc}</p>${extra}
-  <p><a href="#" data-open-rack="${rackId}">Ver el rack completo</a></p>`;
+  return `<h3>${type === 'BLANK' ? tr('Espacio libre', 'Free space') : id}</h3><div class="sub">${rackTitle(rk)} · ${pos}</div><p>${unitDesc(unit)}</p>${extra}
+  <p><a href="#" data-open-rack="${rackId}">${tr('Ver el rack completo', 'View the full rack')}</a></p>`;
 }
 
 const ROOM_TEXT = {
-  1: ['TC01 / IDF01 · Armario de Telecomunicaciones', 'Superficie 6,60 m² (3,00 × 2,20 m). Aloja el Rack R01 de 24U con 100 tomas del primer piso, 5 patcheras y 3 switches CRS354. Uplinks 10G por BB01 hacia el MDF03.'],
-  2: ['TC02 / IDF02 · Armario de Telecomunicaciones', 'Superficie 6,60 m². Aloja el Rack R02 de 24U con 84 tomas del segundo piso, 4 patcheras y 2 switches CRS354. Uplinks 10G por BB02.'],
-  3: ['ER03 / MDF03 · Sala de Equipos', 'Superficie 13,69 m² (3,70 × 3,70 m), por encima del mínimo de 13,5 m². Contigua al Área de Sistemas. Aloja R03 (núcleo y distribución del piso 3) y R04 (granja de servidores), unidos por DAC04.'],
+  1: () => [tr('TC01 / IDF01 · Armario de Telecomunicaciones', 'TC01 / IDF01 · Telecommunications Room'), tr(
+    'Superficie 6,60 m² (3,00 × 2,20 m). Aloja el Rack R01 de 24U con 100 tomas del primer piso, 5 patcheras y 3 switches CRS354. Uplinks 10G por BB01 hacia el MDF03.',
+    'Area 6.60 m² (3.00 × 2.20 m). Houses the 24U rack R01 with the 100 outlets of the first floor, 5 patch panels and 3 CRS354 switches. 10G uplinks to MDF03 over BB01.')],
+  2: () => [tr('TC02 / IDF02 · Armario de Telecomunicaciones', 'TC02 / IDF02 · Telecommunications Room'), tr(
+    'Superficie 6,60 m². Aloja el Rack R02 de 24U con 84 tomas del segundo piso, 4 patcheras y 2 switches CRS354. Uplinks 10G por BB02.',
+    'Area 6.60 m². Houses the 24U rack R02 with the 84 outlets of the second floor, 4 patch panels and 2 CRS354 switches. 10G uplinks over BB02.')],
+  3: () => [tr('ER03 / MDF03 · Sala de Equipos', 'ER03 / MDF03 · Equipment Room'), tr(
+    'Superficie 13,69 m² (3,70 × 3,70 m), por encima del mínimo de 13,5 m². Contigua al Área de Sistemas. Aloja R03 (núcleo y distribución del piso 3) y R04 (granja de servidores), unidos por DAC04.',
+    'Area 13.69 m² (3.70 × 3.70 m), above the 13.5 m² minimum. Next to the IT Department. Houses R03 (core and floor 3 distribution) and R04 (server farm), linked by DAC04.')],
 };
 const TRAY_TEXT = {
-  1: 'T1-E 6 m (100 cables, 29,7 %) · T1-N 13,7 m (23,2 %) · T1-S 8,6 m (6,5 %)',
-  2: 'T2-E 2,9 m (25,0 %) · T2-N 13,8 m (21,4 %) · T2-S 8,2 m (3,6 %)',
-  3: 'T3-E 3,4 m (35,7 %) · T3-N 11,85 m (18,4 %) · T3-S 9,95 m (17,2 %)',
+  1: () => tr('T1-E 6 m (100 cables, 29,7 %) · T1-N 13,7 m (23,2 %) · T1-S 8,6 m (6,5 %)', 'T1-E 6 m (100 cables, 29.7 %) · T1-N 13.7 m (23.2 %) · T1-S 8.6 m (6.5 %)'),
+  2: () => tr('T2-E 2,9 m (25,0 %) · T2-N 13,8 m (21,4 %) · T2-S 8,2 m (3,6 %)', 'T2-E 2.9 m (25.0 %) · T2-N 13.8 m (21.4 %) · T2-S 8.2 m (3.6 %)'),
+  3: () => tr('T3-E 3,4 m (35,7 %) · T3-N 11,85 m (18,4 %) · T3-S 9,95 m (17,2 %)', 'T3-E 3.4 m (35.7 %) · T3-N 11.85 m (18.4 %) · T3-S 9.95 m (17.2 %)'),
 };
 
 function pickHTML(p) {
@@ -862,11 +896,17 @@ function pickHTML(p) {
     case 'desk': return deskHTML(p.desk);
     case 'rack': return rackHTML(p.rack);
     case 'device': return deviceHTML(p.rack, p.unit);
-    case 'room': return `<h3>${ROOM_TEXT[p.floor][0]}</h3><p>${ROOM_TEXT[p.floor][1]}</p>`;
-    case 'tray': return `<h3>Bandeja portacables · Piso ${p.floor}</h3><div class="sub">200 × 50 mm a +2,80 m sobre el eje x = 9,80 m · soporte trapecio</div><p>${TRAY_TEXT[p.floor]}</p><p>Ocupación máxima 35,69 % con 120 cables Cat 6. <span class="ok">Cumple ≤ 40 % ✓</span></p>`;
-    case 'riser': return `<h3>Montante vertical M (CV)</h3><div class="sub">Eje (2,20; 17,60 m) · conduit rígido Ø50 mm</div><p>CV12 3,4 m (ocupación 4,52 %) · CV23 3,4 m (7,11 %). Acometidas a rack CV1R 6,6 m, CV2R 9,3 m, CV3R 10,25 m. Sellado cortafuego ASTM E814 en cada losa.</p><p>Lleva BB01, BB02 y WAN01.</p>`;
-    case 'ef': return `<h3>EF01 · Facilidad de Entrada</h3><p>Ingreso del enlace del operador (ISP) en el primer piso, junto a la montante. Desde acá sube WAN01 (20 m de Cat 6) hasta el router RB4011 en el ER03.</p>`;
-    case 'backbone': { const b = BACKBONE[p.key]; return `<h3>${b.title}</h3><p>${b.desc}</p>`; }
+    case 'room': { const [t, d] = ROOM_TEXT[p.floor](); return `<h3>${t}</h3><p>${d}</p>`; }
+    case 'tray': return tr(
+      `<h3>Bandeja portacables · Piso ${p.floor}</h3><div class="sub">200 × 50 mm a +2,80 m sobre el eje x = 9,80 m · soporte trapecio</div><p>${TRAY_TEXT[p.floor]()}</p><p>Ocupación máxima 35,69 % con 120 cables Cat 6. <span class="ok">Cumple ≤ 40 % ✓</span></p>`,
+      `<h3>Cable tray · Floor ${p.floor}</h3><div class="sub">200 × 50 mm at +2.80 m along the x = 9.80 m axis · trapeze hangers</div><p>${TRAY_TEXT[p.floor]()}</p><p>Maximum fill 35.69 % with 120 Cat 6 cables. <span class="ok">Meets ≤ 40 % ✓</span></p>`);
+    case 'riser': return tr(
+      `<h3>Montante vertical M (CV)</h3><div class="sub">Eje (2,20; 17,60 m) · conduit rígido Ø50 mm</div><p>CV12 3,4 m (ocupación 4,52 %) · CV23 3,4 m (7,11 %). Acometidas a rack CV1R 6,6 m, CV2R 9,3 m, CV3R 10,25 m. Sellado cortafuego ASTM E814 en cada losa.</p><p>Lleva BB01, BB02 y WAN01.</p>`,
+      `<h3>Vertical riser M (CV)</h3><div class="sub">Axis (2.20; 17.60 m) · Ø50 mm rigid conduit</div><p>CV12 3.4 m (4.52 % fill) · CV23 3.4 m (7.11 %). Runs to the racks CV1R 6.6 m, CV2R 9.3 m, CV3R 10.25 m. ASTM E814 firestop at every slab.</p><p>Carries BB01, BB02 and WAN01.</p>`);
+    case 'ef': return tr(
+      `<h3>EF01 · Facilidad de Entrada</h3><p>Ingreso del enlace del operador (ISP) en el primer piso, junto a la montante. Desde aquí sube WAN01 (20 m de Cat 6) hasta el router RB4011 en el ER03.</p>`,
+      `<h3>EF01 · Entrance Facility</h3><p>Entry point of the carrier (ISP) link on the first floor, next to the riser. From here WAN01 (20 m of Cat 6) goes up to the RB4011 router in ER03.</p>`);
+    case 'backbone': { const b = BACKBONE[p.key]; return `<h3>${tr(b.title, b.titleEn)}</h3><p>${tr(b.desc, b.descEn)}</p>`; }
   }
   return '';
 }
@@ -897,14 +937,14 @@ function pick(ev) {
 
 function nameOf(p) {
   switch (p.kind) {
-    case 'desk': return `${p.desk.id} · ${SECTIONS[p.desk.s].name}`;
-    case 'rack': return RACKS[p.rack].title;
+    case 'desk': return `${p.desk.id} · ${secName(p.desk.s)}`;
+    case 'rack': return rackTitle(RACKS[p.rack]);
     case 'device': return `${p.unit[3]} · U${pad(p.unit[0])}`;
-    case 'room': return ROOM_TEXT[p.floor][0];
-    case 'tray': return 'Bandeja 200×50 mm';
-    case 'riser': return 'Montante vertical M';
-    case 'ef': return 'EF01 · Facilidad de entrada';
-    case 'backbone': return BACKBONE[p.key].title;
+    case 'room': return ROOM_TEXT[p.floor]()[0];
+    case 'tray': return tr('Bandeja 200×50 mm', 'Cable tray 200×50 mm');
+    case 'riser': return tr('Montante vertical M', 'Vertical riser M');
+    case 'ef': return tr('EF01 · Facilidad de entrada', 'EF01 · Entrance facility');
+    case 'backbone': return tr(BACKBONE[p.key].title, BACKBONE[p.key].titleEn);
   }
 }
 
@@ -914,7 +954,7 @@ function select(obj) {
   clearHighlight();
   if (!obj) return;
   const p = obj.userData.pick;
-  showInfo(pickHTML(p));
+  showInfo(() => pickHTML(p));
   if (p.kind === 'desk') showCablePath(p.desk);
   if (p.kind !== 'backbone') {
     selBox = new THREE.BoxHelper(obj, '#f59e0b');
@@ -953,7 +993,17 @@ function doHover() {
   }
 }
 
-document.getElementById('closeInfo').onclick = () => { info.hidden = true; select(null); };
+document.getElementById('closeInfo').onclick = () => { info.hidden = true; infoFn = null; select(null); };
+
+// Cambio de idioma: textos fijos, etiquetas 3D, panel abierto y frentes de los racks
+document.getElementById('langBtn').addEventListener('click', () => {
+  setLang(lang === 'es' ? 'en' : 'es');
+  applyStatic();
+  for (const l of labels) if (typeof l.userData.text === 'function') l.element.textContent = l.userData.text();
+  if (infoFn && !info.hidden) infoBody.innerHTML = infoFn();
+  rackPainters.forEach((paint) => paint());
+  invalidate();
+});
 infoBody.addEventListener('click', (e) => {
   const a = e.target.closest('[data-open-rack]');
   if (a) { e.preventDefault(); focusRack(a.dataset.openRack); return; }
@@ -1028,7 +1078,7 @@ function focusRack(id) {
   flyTo(V(rk.x + 0.75, y + 1.35, rk.z + 2.1), V(rk.x, y + 0.65, rk.z + 0.3), 1.1, false);
   if (selBox) { selBox.parent.remove(selBox); selBox = null; }
   clearHighlight();
-  showInfo(rackHTML(id));
+  showInfo(() => rackHTML(id));
   setActive(document.querySelector(`[data-rack=${id}]`));
 }
 document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => { VIEWS[b.dataset.view](); setActive(b); }));
@@ -1133,7 +1183,7 @@ const tmpV = new THREE.Vector3();
   buildBackbone();
   applyLayers();
   const narrow = window.innerWidth > 0 && window.innerWidth <= 760;
-  if (!narrow) showInfo(summaryHTML());
+  if (!narrow) showInfo(summaryHTML);
   else document.getElementById('controls').classList.add('collapsed');
   VIEWS.general();
   camera.position.copy(camAnim.p1);

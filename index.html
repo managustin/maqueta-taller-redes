@@ -21,71 +21,72 @@
   <div id="app"></div>
 
   <header class="card title">
-    <div class="eyebrow">Taller de Redes · TP Integrador 2026 · Grupo 3</div>
-    <h1>MisioTIC S.A. · Cableado estructurado</h1>
-    <p>3 plantas de 15 × 25 m · 146 puestos · 304 enlaces Cat 6 · backbone OM3 10G</p>
+    <button class="lang" id="langBtn" data-i18n="langBtn" data-i18n-aria="langAria" aria-label="Cambiar el idioma a inglés">EN</button>
+    <div class="eyebrow" data-i18n="eyebrow">Taller de Redes · TP Integrador 2026 · Grupo 3</div>
+    <h1 data-i18n="h1">MisioTIC S.A. · Cableado estructurado</h1>
+    <p data-i18n="sub">3 plantas de 15 × 25 m · 146 puestos · 304 enlaces Cat 6 · backbone OM3 10G</p>
   </header>
 
   <aside class="card controls" id="controls">
-    <button class="collapse" id="toggleControls" aria-label="Mostrar u ocultar controles">☰</button>
+    <button class="collapse" id="toggleControls" data-i18n-aria="menuAria" aria-label="Mostrar u ocultar controles">☰</button>
     <div class="controls-body">
       <section>
-        <h2>Vistas</h2>
+        <h2 data-i18n="views">Vistas</h2>
         <div class="btns">
-          <button data-view="general" class="active">General</button>
-          <button data-view="f1">Piso 1</button>
-          <button data-view="f2">Piso 2</button>
-          <button data-view="f3">Piso 3</button>
-          <button data-view="corte">Corte / montante</button>
-          <button data-view="top">Planta</button>
+          <button data-view="general" class="active" data-i18n="vGeneral">General</button>
+          <button data-view="f1" data-i18n="vF1">Piso 1</button>
+          <button data-view="f2" data-i18n="vF2">Piso 2</button>
+          <button data-view="f3" data-i18n="vF3">Piso 3</button>
+          <button data-view="corte" data-i18n="vCorte">Corte / montante</button>
+          <button data-view="top" data-i18n="vTop">Planta</button>
         </div>
       </section>
       <section>
-        <h2>Racks</h2>
+        <h2 data-i18n="racks">Racks</h2>
         <div class="btns">
           <button data-rack="R01">R01</button>
           <button data-rack="R02">R02</button>
-          <button data-rack="R03">R03 Core</button>
-          <button data-rack="R04">R04 Servidores</button>
+          <button data-rack="R03" data-i18n="rR03">R03 Core</button>
+          <button data-rack="R04" data-i18n="rR04">R04 Servidores</button>
         </div>
       </section>
       <section>
-        <h2>Separar pisos</h2>
+        <h2 data-i18n="explode">Separar pisos</h2>
         <input type="range" id="explode" min="0" max="1" step="0.01" value="0.7" />
       </section>
       <section>
-        <h2>Capas</h2>
-        <label><input type="checkbox" data-layer="facade" checked /> Fachada y estructura</label>
-        <label><input type="checkbox" data-layer="ceiling" /> Cielorraso (+2,60 m)</label>
-        <label><input type="checkbox" data-layer="furniture" checked /> Mobiliario</label>
-        <label><input type="checkbox" data-layer="zones" checked /> Zonas por sección</label>
-        <label><input type="checkbox" data-layer="paths" checked /> Canalizaciones</label>
-        <label><input type="checkbox" data-layer="backbone" checked /> Backbone y WAN</label>
-        <label><input type="checkbox" data-layer="labels" checked /> Etiquetas</label>
-        <label><input type="checkbox" id="traffic" checked /> Tráfico animado</label>
+        <h2 data-i18n="layers">Capas</h2>
+        <label><input type="checkbox" data-layer="facade" checked /> <span data-i18n="lFacade">Fachada y estructura</span></label>
+        <label><input type="checkbox" data-layer="ceiling" /> <span data-i18n="lCeiling">Cielorraso (+2,60 m)</span></label>
+        <label><input type="checkbox" data-layer="furniture" checked /> <span data-i18n="lFurniture">Mobiliario</span></label>
+        <label><input type="checkbox" data-layer="zones" checked /> <span data-i18n="lZones">Zonas por sección</span></label>
+        <label><input type="checkbox" data-layer="paths" checked /> <span data-i18n="lPaths">Canalizaciones</span></label>
+        <label><input type="checkbox" data-layer="backbone" checked /> <span data-i18n="lBackbone">Backbone y WAN</span></label>
+        <label><input type="checkbox" data-layer="labels" checked /> <span data-i18n="lLabels">Etiquetas</span></label>
+        <label><input type="checkbox" id="traffic" checked /> <span data-i18n="lTraffic">Tráfico animado</span></label>
       </section>
-      <p class="hint">Arrastrá para rotar, rueda para zoom, clic derecho para desplazar. Hacé clic en un puesto, un rack o un equipo para ver su detalle.</p>
+      <p class="hint" data-i18n="hint">Arrastre para rotar, use la rueda para acercar o alejar y el clic derecho para desplazar. Haga clic en un puesto, un rack o un equipo para ver su detalle.</p>
     </div>
   </aside>
 
   <aside class="card info" id="info" hidden>
-    <button class="close" id="closeInfo" aria-label="Cerrar">×</button>
+    <button class="close" id="closeInfo" data-i18n-aria="closeAria" aria-label="Cerrar">×</button>
     <div id="infoBody"></div>
   </aside>
 
   <footer class="card legend">
-    <span><i style="background:#16a34a"></i>Bandeja 200×50</span>
-    <span><i style="background:#0284c7"></i>Conduit Ø50</span>
-    <span><i style="background:#94a3b8"></i>Columna / cablecanal</span>
-    <span><i style="background:#f97316"></i>BB01 OM3</span>
-    <span><i style="background:#eab308"></i>BB02 OM3</span>
-    <span><i style="background:#c2410c"></i>WAN01</span>
-    <span><i class="dot" style="background:#2563eb"></i>Puesto inicial</span>
-    <span><i class="dot" style="background:#f59e0b"></i>Crecimiento +30 %</span>
+    <span><i style="background:#16a34a"></i><span data-i18n="gTray">Bandeja 200×50</span></span>
+    <span><i style="background:#0284c7"></i><span data-i18n="gConduit">Conduit Ø50</span></span>
+    <span><i style="background:#94a3b8"></i><span data-i18n="gColumn">Columna / cablecanal</span></span>
+    <span><i style="background:#f97316"></i><span data-i18n="gBB01">BB01 OM3</span></span>
+    <span><i style="background:#eab308"></i><span data-i18n="gBB02">BB02 OM3</span></span>
+    <span><i style="background:#c2410c"></i><span data-i18n="gWan">WAN01</span></span>
+    <span><i class="dot" style="background:#2563eb"></i><span data-i18n="gInitial">Puesto inicial</span></span>
+    <span><i class="dot" style="background:#f59e0b"></i><span data-i18n="gGrowth">Crecimiento +30 %</span></span>
   </footer>
 
   <div id="tooltip" hidden></div>
-  <div id="loading">Cargando maqueta…</div>
+  <div id="loading" data-i18n="loading">Cargando maqueta…</div>
 
   <script type="module" src="js/main.js"></script>
 </body>
