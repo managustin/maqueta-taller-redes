@@ -2,6 +2,12 @@
 
 Visualización interactiva del proyecto de cableado estructurado del TP Integrador de Taller de Redes 2026 (Grupo 3).
 
+**Ver la maqueta online:** https://managustin-taller-redes.vercel.app/
+
+Se puede ver en español o en inglés (botón EN/ES, o agregando `?lang=en` a la dirección).
+
+## Ver localmente
+
 Es un sitio estático (HTML + Three.js desde CDN), sin paso de build. Para verlo localmente hace falta un servidor, por ejemplo:
 
 ```
