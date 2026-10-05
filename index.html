@@ -86,8 +86,37 @@
   </footer>
 
   <div id="tooltip" hidden></div>
-  <div id="loading" data-i18n="loading">Cargando maqueta…</div>
+  <div id="loading" role="status" aria-live="polite">
+    <div class="loader-box">
+      <div class="spinner" aria-hidden="true"></div>
+      <div id="loadingMsg" data-i18n="loading">Cargando maqueta…</div>
+      <div class="bar"><i id="loadingBar"></i></div>
+    </div>
+  </div>
+  <script>
+    // Cartel de carga: idioma elegido y aviso si el motor 3D no llega a cargar.
+    (function () {
+      var en = /[?&]lang=en/.test(location.search);
+      try { if (!/[?&]lang=es/.test(location.search) && localStorage.getItem('maqueta-lang') === 'en') en = true; } catch (e) {}
+      var msg = document.getElementById('loadingMsg');
+      msg.textContent = en ? 'Downloading the 3D engine…' : 'Descargando el motor 3D…';
+      document.getElementById('loadingBar').style.width = '5%';
+      window.__loadFail = function () {
+        var box = document.getElementById('loading');
+        if (!box) return;
+        box.classList.add('error');
+        msg.textContent = en
+          ? 'The 3D engine could not be downloaded. Check your connection and reload the page.'
+          : 'No se pudo descargar el motor 3D. Verifique la conexión y recargue la página.';
+      };
+      setTimeout(function () {
+        if (document.getElementById('loading') && !document.getElementById('loading').classList.contains('error')) {
+          msg.textContent += en ? ' (this is taking longer than usual)' : ' (está tardando más de lo normal)';
+        }
+      }, 15000);
+    })();
+  </script>
 
-  <script type="module" src="js/main.js"></script>
+  <script type="module" src="js/main.js" onerror="window.__loadFail && window.__loadFail()"></script>
 </body>
 </html>

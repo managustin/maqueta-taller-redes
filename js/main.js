@@ -17,9 +17,40 @@ const unitDesc = (u) => tr(u[4], u[5]);
 // Escena
 // ---------------------------------------------------------------------------
 const app = document.getElementById('app');
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+// Tamaño real de la vista. Puede valer 0 un instante (pestaña recién restaurada, ventana minimizada):
+// en ese caso no se toca la cámara y se espera al próximo cambio de tamaño.
+const viewSize = () => [app.clientWidth || window.innerWidth, app.clientHeight || window.innerHeight];
+
+const loader = {
+  el: document.getElementById('loading'),
+  step(text, pct) {
+    if (!this.el) return;
+    document.getElementById('loadingMsg').textContent = text;
+    document.getElementById('loadingBar').style.width = pct + '%';
+  },
+  fail(text) {
+    if (!this.el) return;
+    this.el.classList.add('error');
+    document.getElementById('loadingMsg').textContent = text;
+  },
+  done() {
+    if (!this.el) return;
+    const el = this.el;
+    this.el = null;
+    el.classList.add('done');
+    setTimeout(() => el.remove(), 450);
+  },
+};
+
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+} catch (e) {
+  loader.fail(tr('Este navegador no puede mostrar gráficos 3D (WebGL). Pruebe con otro navegador o active la aceleración por hardware.',
+    'This browser cannot display 3D graphics (WebGL). Try another browser or turn on hardware acceleration.'));
+  throw e;
+}
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 // la escena es estática: el mapa de sombras se recalcula solo cuando algo cambia
@@ -30,7 +61,6 @@ renderer.toneMappingExposure = 1.05;
 app.appendChild(renderer.domElement);
 
 const labelRenderer = new CSS2DRenderer();
-labelRenderer.setSize(window.innerWidth, window.innerHeight);
 labelRenderer.domElement.style.position = 'absolute';
 labelRenderer.domElement.style.top = '0';
 labelRenderer.domElement.style.pointerEvents = 'none';
@@ -47,7 +77,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color('#e9eef4');
 scene.fog = new THREE.Fog('#e9eef4', 90, 220);
 
-const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.2, 400);
+const camera = new THREE.PerspectiveCamera(40, 1.6, 0.2, 400);
 camera.position.set(42, 30, 50);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
@@ -1085,13 +1115,33 @@ document.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('clic
 document.querySelectorAll('[data-rack]').forEach((b) => b.addEventListener('click', () => focusRack(b.dataset.rack)));
 document.getElementById('toggleControls').onclick = () => document.getElementById('controls').classList.toggle('collapsed');
 
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+let viewW = 0, viewH = 0;
+function resize() {
+  const [w, h] = viewSize();
+  if (!w || !h || (w === viewW && h === viewH)) return;
+  viewW = w;
+  viewH = h;
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  labelRenderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(w, h);
+  labelRenderer.setSize(w, h);
   invalidate();
-});
+}
+window.addEventListener('resize', resize);
+if ('ResizeObserver' in window) new ResizeObserver(resize).observe(app);
+renderer.domElement.addEventListener('webglcontextrestored', invalidate);
+
+// Si por algún motivo la cámara quedara con valores inválidos, vuelve a la vista general.
+const finite = (v) => Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
+function checkCamera() {
+  if (finite(camera.position) && finite(controls.target)) return;
+  camAnim = null;
+  VIEWS.general();
+  camera.position.copy(camAnim.p1);
+  controls.target.copy(camAnim.t1);
+  camAnim = null;
+  invalidate();
+}
 
 // ---------------------------------------------------------------------------
 // Bucle
@@ -1101,9 +1151,21 @@ let last = performance.now();
 
 const inRange = (dist, u) => dist < u.maxDist && dist > u.minDist;
 
+let tickError = false;
 function tick(now) {
+  requestAnimationFrame(tick);
+  try {
+    frame(now);
+  } catch (e) {
+    if (!tickError) console.error(e);
+    tickError = true;
+  }
+}
+
+function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
+  resize();
 
   if (Math.abs(explode - explodeTarget) > 1e-4) {
     explode += (explodeTarget - explode) * Math.min(1, dt * 6);
@@ -1122,6 +1184,7 @@ function tick(now) {
     if (t >= 1) camAnim = null;
   }
   controls.update();
+  checkCamera();
 
   // tráfico animado: una sola malla instanciada para todos los pulsos
   const traffic = trafficCb.checked && bbGroup.visible;
@@ -1165,31 +1228,50 @@ function tick(now) {
   }
 
   doHover();
-  if (needsRender) {
+  if (needsRender && viewW && viewH) {
     renderer.render(scene, camera);
     needsRender = false;
+    loader.done();
   }
-  requestAnimationFrame(tick);
 }
 const tmpV = new THREE.Vector3();
 
 // ---------------------------------------------------------------------------
 // Arranque
 // ---------------------------------------------------------------------------
+// deja que el navegador pinte el cartel de carga entre paso y paso
+const breathe = () => new Promise((r) => { requestAnimationFrame(() => r()); setTimeout(r, 60); });
+
 (async () => {
-  try { await document.fonts.ready; } catch (e) { /* sin fuentes web */ }
-  FLOORS.forEach(buildFloor);
-  floorGroups.forEach((g, i) => { g.position.y = floorY(i); });
-  buildBackbone();
-  applyLayers();
-  const narrow = window.innerWidth > 0 && window.innerWidth <= 760;
-  if (!narrow) showInfo(summaryHTML);
-  else document.getElementById('controls').classList.add('collapsed');
-  VIEWS.general();
-  camera.position.copy(camAnim.p1);
-  controls.target.copy(camAnim.t1);
-  camAnim = null;
-  document.getElementById('loading').remove();
-  invalidate();
-  requestAnimationFrame(tick);
+  try {
+    loader.step(tr('Cargando tipografías…', 'Loading fonts…'), 15);
+    await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 2500))]);
+    for (const f of FLOORS) {
+      loader.step(tr(`Construyendo el piso ${f.n} de 3…`, `Building floor ${f.n} of 3…`), 15 + f.n * 20);
+      await breathe();
+      buildFloor(f);
+    }
+    loader.step(tr('Conectando backbone y racks…', 'Connecting backbone and racks…'), 85);
+    await breathe();
+    floorGroups.forEach((g, i) => { g.position.y = floorY(i); });
+    buildBackbone();
+    applyLayers();
+    resize();
+    const narrow = viewW > 0 && viewW <= 760;
+    if (!narrow) showInfo(summaryHTML);
+    else document.getElementById('controls').classList.add('collapsed');
+    VIEWS.general();
+    camera.position.copy(camAnim.p1);
+    controls.target.copy(camAnim.t1);
+    camAnim = null;
+    loader.step(tr('Preparando la vista 3D…', 'Preparing the 3D view…'), 95);
+    await breathe();
+    // compila los shaders antes del primer cuadro para que no se trabe al aparecer
+    try { await renderer.compileAsync(scene, camera); } catch (e) { /* se compilan en el primer cuadro */ }
+    invalidate();
+    requestAnimationFrame(tick);
+  } catch (e) {
+    console.error(e);
+    loader.fail(tr('No se pudo armar la maqueta. Recargue la página.', 'The model could not be built. Please reload the page.'));
+  }
 })();

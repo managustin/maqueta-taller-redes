@@ -95,7 +95,24 @@ body {
 .lbl.floor { font-size: 13px; background: var(--accent); color: #fff; border-color: var(--accent); }
 .lbl.small { font-size: 10px; font-weight: 500; }
 
-#loading { position: fixed; inset: 0; display: grid; place-items: center; font-size: 15px; color: var(--muted); background: var(--bg); z-index: 20; }
+#loading {
+  position: fixed; inset: 0; display: grid; place-items: center;
+  background: var(--bg); z-index: 20; transition: opacity .4s ease;
+}
+#loading.done { opacity: 0; pointer-events: none; }
+.loader-box { display: grid; justify-items: center; gap: 14px; padding: 16px; max-width: 360px; text-align: center; }
+#loadingMsg { font-size: 15px; color: var(--muted); line-height: 1.4; }
+#loading .bar { width: 220px; height: 4px; border-radius: 4px; background: var(--line); overflow: hidden; }
+#loading .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s ease; }
+.spinner {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 3px solid var(--line); border-top-color: var(--accent);
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#loading.error .spinner, #loading.error .bar { display: none; }
+#loading.error #loadingMsg { color: #b91c1c; font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2.4s; } }
 
 @media (max-width: 760px) {
   .title { left: 16px; right: 16px; max-width: none; padding: 8px 12px; }
