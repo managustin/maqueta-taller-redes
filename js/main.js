@@ -747,6 +747,7 @@ function polyPath(pts) {
 }
 
 function buildBackbone() {
+  if (highlight && highlight.parent === bbGroup) disposeHighlight();
   for (const c of bbGroup.children.slice()) {
     bbGroup.remove(c);
     c.geometry.dispose();
@@ -769,13 +770,23 @@ function buildBackbone() {
   for (const [k, pts] of Object.entries(routes)) {
     const path = k === 'DAC04' ? new THREE.CatmullRomCurve3(pts) : polyPath(pts);
     const mat = flowMats[k] || flowMats.WAN01;
-    const tube = new THREE.Mesh(new THREE.TubeGeometry(path, k === 'DAC04' ? 30 : 240, k === 'ISP' ? 0.06 : k === 'DAC04' ? 0.02 : 0.035, 6, false), mat);
+    const radius = k === 'ISP' ? 0.06 : k === 'DAC04' ? 0.02 : 0.035;
+    const tube = new THREE.Mesh(new THREE.TubeGeometry(path, k === 'DAC04' ? 30 : 240, radius, 6, false), mat);
+    tube.userData.mat = mat;
+    tube.userData.path = path;
+    tube.userData.radius = radius;
     bbGroup.add(tube);
     clickable(tube, { kind: 'backbone', key: k === 'ISP' ? 'WAN01' : k });
+    // funda invisible más gruesa para que el cable sea fácil de clicar
+    const hit = new THREE.Mesh(new THREE.TubeGeometry(path, k === 'DAC04' ? 30 : 120, 0.14, 5, false), M.hit);
+    hit.userData.proxy = true;
+    bbGroup.add(hit);
+    clickable(hit, { kind: 'backbone', key: k === 'ISP' ? 'WAN01' : k });
     for (let i = 0; i < 3; i++) {
       pulses.push({ path, phase: phases[pulses.length] ?? i / 3, speed: k === 'DAC04' ? 0.5 : 0.12, size: k === 'DAC04' ? 0.035 : 0.055 });
     }
   }
+  if (cableKey) showBackboneGlow(cableKey);
 }
 
 // Poste del operador (afuera del edificio)
@@ -787,11 +798,37 @@ clickable(ispPost, { kind: 'backbone', key: 'WAN01' });
 const ispLbl = label(() => tr('Acometida operador (ISP)', 'Carrier service entrance (ISP)'), 'room', scene, -7, 2.5, ispPost.position.z);
 
 // ---------------------------------------------------------------------------
-// Recorrido de un cable seleccionado
+// Recorrido de un cable seleccionado (se ilumina con un halo que late)
 // ---------------------------------------------------------------------------
 let highlight = null;
+let cableKey = null; // cable troncal seleccionado (BB01, BB02, WAN01, DAC04)
 const hlMat = new THREE.MeshStandardMaterial({ color: '#22d3ee', emissive: '#06b6d4', emissiveIntensity: 0.9 });
-const hlPulse = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 10), new THREE.MeshBasicMaterial({ color: '#ffffff' }));
+const haloMat = (color) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false });
+const dimMat = new THREE.MeshStandardMaterial({ color: '#94a3b8', transparent: true, opacity: 0.25, depthWrite: false });
+const pulseGeo = new THREE.SphereGeometry(1, 12, 10);
+const pulseWhite = new THREE.MeshBasicMaterial({ color: '#ffffff' });
+
+// arma el resaltado sobre uno o varios tramos: núcleo brillante, halo y pulsos que recorren el cable
+function glowGroup(paths, coreMat, color, r) {
+  const g = new THREE.Group();
+  const halo = haloMat(color);
+  g.userData = { halo, runners: [], own: [halo] };
+  for (const path of paths) {
+    const segs = Math.max(30, Math.round(path.getLength() * 12));
+    g.add(new THREE.Mesh(new THREE.TubeGeometry(path, segs, r, 8, false), coreMat));
+    const h = new THREE.Mesh(new THREE.TubeGeometry(path, segs, r * 2.6, 8, false), halo);
+    h.renderOrder = 2;
+    g.add(h);
+    const n = Math.max(1, Math.round(path.getLength() / 6));
+    for (let i = 0; i < n; i++) {
+      const dot = new THREE.Mesh(pulseGeo, pulseWhite);
+      dot.scale.setScalar(r * 2.2);
+      g.add(dot);
+      g.userData.runners.push({ dot, path, phase: i / n, speed: 2.5 / path.getLength() });
+    }
+  }
+  return g;
+}
 
 function showCablePath(d) {
   clearHighlight();
@@ -806,19 +843,37 @@ function showCablePath(d) {
   if (!d.isCol) pts.push(V(d.x, 0.03, d.z - 0.03), V(d.xc, 0.03, d.z - 0.03));
   pts.push(V(d.xc, 0.03, zc), V(d.xc, ty, zc), V(B.TRAY_X, ty, zc), V(B.TRAY_X, B.TRAY, zc), V(B.TRAY_X, B.TRAY, rk.z), V(rk.x, B.TRAY, rk.z), V(rk.x, B.TRAY, rk.z - 0.3), V(rk.x, 1.3, rk.z - 0.3), V(rk.x, uy, rk.z + 0.3), V(rk.x + 0.1, uy, rk.z + 0.47));
   const clean = pts.filter((p, i) => i === 0 || p.distanceTo(pts[i - 1]) > 1e-3);
-  const path = polyPath(clean);
-  highlight = new THREE.Group();
-  highlight.add(new THREE.Mesh(new THREE.TubeGeometry(path, 300, 0.03, 6, false), hlMat));
-  highlight.add(hlPulse);
-  hlPulse.userData = { path, phase: 0, speed: 0.25 };
+  highlight = glowGroup([polyPath(clean)], hlMat, '#22d3ee', 0.03);
   floorGroups[d.floor - 1].add(highlight);
 }
 
-function clearHighlight() {
-  if (!highlight) return;
+// cable troncal: se ilumina en su color y los demás troncales se atenúan
+function showBackboneGlow(key) {
+  if (highlight) disposeHighlight();
+  cableKey = key;
+  const tubes = bbGroup.children.filter((t) => t.userData.mat && t.userData.pick);
+  const mine = tubes.filter((t) => t.userData.pick.key === key);
+  tubes.forEach((t) => { t.material = mine.includes(t) ? t.userData.mat : dimMat; });
+  const color = BACKBONE[key].color;
+  const core = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 1.2 });
+  highlight = glowGroup(mine.map((t) => t.userData.path), core, color, Math.max(0.03, Math.min(...mine.map((t) => t.userData.radius))) * 1.3);
+  highlight.userData.own.push(core);
+  bbGroup.add(highlight);
+}
+
+function disposeHighlight() {
   highlight.parent.remove(highlight);
-  highlight.children[0].geometry.dispose();
+  highlight.traverse((o) => { if (o.isMesh && o.geometry !== pulseGeo) o.geometry.dispose(); });
+  highlight.userData.own.forEach((m) => m.dispose());
   highlight = null;
+}
+
+function clearHighlight() {
+  if (cableKey) {
+    cableKey = null;
+    bbGroup.children.forEach((t) => { if (t.userData.mat) t.material = t.userData.mat; });
+  }
+  if (highlight) disposeHighlight();
 }
 
 // ---------------------------------------------------------------------------
@@ -936,7 +991,7 @@ function pickHTML(p) {
     case 'ef': return tr(
       `<h3>EF01 · Facilidad de Entrada</h3><p>Ingreso del enlace del operador (ISP) en el primer piso, junto a la montante. Desde aquí sube WAN01 (20 m de Cat 6) hasta el router RB4011 en el ER03.</p>`,
       `<h3>EF01 · Entrance Facility</h3><p>Entry point of the carrier (ISP) link on the first floor, next to the riser. From here WAN01 (20 m of Cat 6) goes up to the RB4011 router in ER03.</p>`);
-    case 'backbone': { const b = BACKBONE[p.key]; return `<h3>${tr(b.title, b.titleEn)}</h3><p>${tr(b.desc, b.descEn)}</p>`; }
+    case 'backbone': { const b = BACKBONE[p.key]; return `<h3>${tr(b.title, b.titleEn)}</h3><p>${tr(b.desc, b.descEn)}</p><p style="color:var(--muted)">${tr('El cable está iluminado y los demás troncales quedan atenuados.', 'The cable is lit up and the other backbone cables are dimmed.')}</p>`; }
   }
   return '';
 }
@@ -962,7 +1017,13 @@ function pick(ev) {
   mouse.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
   raycaster.setFromCamera(mouse, camera);
   const hits = raycaster.intersectObjects(clickables.filter(visibleChain), false);
-  return hits.length ? hits[0].object : null;
+  if (!hits.length) return null;
+  // la funda gruesa de un cable no le gana a un objeto real que está pegado detrás (un rack, por ejemplo)
+  if (hits[0].object.userData.proxy) {
+    const real = hits.find((h) => !h.object.userData.proxy);
+    if (real && real.distance - hits[0].distance < 0.3) return real.object;
+  }
+  return hits[0].object;
 }
 
 function nameOf(p) {
@@ -986,6 +1047,7 @@ function select(obj) {
   const p = obj.userData.pick;
   showInfo(() => pickHTML(p));
   if (p.kind === 'desk') showCablePath(p.desk);
+  if (p.kind === 'backbone') showBackboneGlow(p.key);
   if (p.kind !== 'backbone') {
     selBox = new THREE.BoxHelper(obj, '#f59e0b');
     scene.add(selBox);
@@ -1220,9 +1282,11 @@ function frame(now) {
     needsRender = true;
   }
   if (highlight) {
-    const u = hlPulse.userData;
-    u.phase = (u.phase + dt * u.speed) % 1;
-    hlPulse.position.copy(u.path.getPointAt(u.phase));
+    for (const u of highlight.userData.runners) {
+      u.phase = (u.phase + dt * u.speed) % 1;
+      u.dot.position.copy(u.path.getPointAt(u.phase));
+    }
+    highlight.userData.halo.opacity = 0.22 + 0.2 * (0.5 + 0.5 * Math.sin(now / 260));
     needsRender = true;
   }
 
